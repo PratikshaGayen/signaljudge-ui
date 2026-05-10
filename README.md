@@ -1,3 +1,4 @@
+> **Contract source:** [signal_judge.py](https://github.com/genlayerlabs/genlayer-studio/pull/1626) — part of the genlayer-studio examples.
 # SignalJudge UI
 
 A React + Vite + Tailwind CSS frontend for the **SignalJudge** GenLayer smart contract. Traders submit price predictions, an LLM judges them on-chain, and a leaderboard tracks win rates.
@@ -12,7 +13,7 @@ A React + Vite + Tailwind CSS frontend for the **SignalJudge** GenLayer smart co
 
 - Node.js 18+
 - A running GenLayer local node at `http://localhost:4000` (e.g. via [GenLayer Studio](https://github.com/yeagerai/genlayer-simulator))
-- The SignalJudge contract deployed and its address known
+- The SignalJudge contract deployed and its address known — see [genlayer-studio PR #1626](https://github.com/genlayerlabs/genlayer-studio/pull/1626) for the contract source
 
 ## Setup
 
