@@ -1,20 +1,30 @@
 import { useState } from "react";
 
+const ASSETS = ["BTC", "ETH", "SOL", "BNB", "XRP", "DOGE", "ADA", "AVAX", "DOT", "MATIC"];
 const DIRECTIONS = ["ABOVE", "BELOW", "AT"];
+const TIMEFRAMES = [
+  { value: "5min", label: "5 Minutes" },
+  { value: "15min", label: "15 Minutes" },
+  { value: "30min", label: "30 Minutes" },
+  { value: "1h", label: "1 Hour" },
+  { value: "4h", label: "4 Hours" },
+  { value: "1d", label: "1 Day" },
+];
 
 export default function SubmitSignal({ address, writeContract }) {
-  const [asset, setAsset] = useState("");
+  const [asset, setAsset] = useState("BTC");
   const [direction, setDirection] = useState("ABOVE");
   const [targetPrice, setTargetPrice] = useState("");
   const [prediction, setPrediction] = useState("");
   const [reasoning, setReasoning] = useState("");
+  const [timeframe, setTimeframe] = useState("15min");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [formError, setFormError] = useState("");
 
   const validate = () => {
-    if (!asset || !/^[a-zA-Z0-9]+$/.test(asset)) {
-      return "Asset must be alphanumeric (e.g. BTC, ETH, SOL).";
+    if (!ASSETS.includes(asset)) {
+      return "Asset must be selected from the dropdown.";
     }
     if (!DIRECTIONS.includes(direction)) {
       return "Direction must be ABOVE, BELOW, or AT.";
@@ -27,6 +37,9 @@ export default function SubmitSignal({ address, writeContract }) {
     }
     if (!reasoning.trim()) {
       return "Reasoning is required.";
+    }
+    if (!TIMEFRAMES.some((t) => t.value === timeframe)) {
+      return "Timeframe must be selected from the dropdown.";
     }
     return "";
   };
@@ -48,20 +61,21 @@ export default function SubmitSignal({ address, writeContract }) {
         reasoning.trim(),
         targetPrice.trim(),
         direction,
+        timeframe,
       ]);
-      // Try to extract return value from receipt leader receipt
-      let judgment = null;
+      // Extract return value from receipt
+      let ret = null;
       const leaderReceipt = receipt?.consensus_data?.leader_receipt?.[0];
       if (leaderReceipt?.result) {
         try {
-          judgment = JSON.parse(leaderReceipt.result);
+          ret = JSON.parse(leaderReceipt.result);
         } catch {
-          judgment = { raw: leaderReceipt.result };
+          ret = { raw: leaderReceipt.result };
         }
       }
       setResult({
         success: true,
-        judgment,
+        ret,
         txHash: receipt?.hash || receipt?.txId,
       });
     } catch (err) {
@@ -69,6 +83,12 @@ export default function SubmitSignal({ address, writeContract }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const formatDeadline = (ts) => {
+    if (!ts) return "—";
+    const d = new Date(ts * 1000);
+    return d.toLocaleString();
   };
 
   return (
@@ -81,13 +101,32 @@ export default function SubmitSignal({ address, writeContract }) {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-slate-300 mb-1">Asset</label>
-          <input
-            type="text"
+          <select
             value={asset}
             onChange={(e) => setAsset(e.target.value)}
-            placeholder="e.g. BTC"
-            className="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          />
+            className="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          >
+            {ASSETS.map((a) => (
+              <option key={a} value={a}>
+                {a}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-1">Timeframe</label>
+          <select
+            value={timeframe}
+            onChange={(e) => setTimeframe(e.target.value)}
+            className="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          >
+            {TIMEFRAMES.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div>
@@ -173,34 +212,39 @@ export default function SubmitSignal({ address, writeContract }) {
         >
           <p className="font-semibold text-sm">
             {result.success ? (
-              <span className="text-emerald-300">Signal Judged</span>
+              <span className="text-emerald-300">Signal Submitted</span>
             ) : (
               <span className="text-red-300">Submission Failed</span>
             )}
           </p>
-          {result.success && result.judgment && (
+          {result.success && result.ret && (
             <div className="mt-3 space-y-2 text-sm text-slate-300">
-              {typeof result.judgment.correct === "boolean" && (
-                <p>
-                  Correct:{" "}
-                  <span className={result.judgment.correct ? "text-emerald-400" : "text-red-400"}>
-                    {result.judgment.correct ? "Yes" : "No"}
-                  </span>
-                </p>
-              )}
-              {result.judgment.current_price && (
-                <p>Current Price: <span className="font-mono text-white">{result.judgment.current_price}</span></p>
-              )}
-              {typeof result.judgment.reasoning_quality === "number" && (
-                <p>Reasoning Quality: <span className="font-mono text-white">{result.judgment.reasoning_quality}/10</span></p>
-              )}
+              <p>
+                Signal ID:{" "}
+                <span className="font-mono text-white">{result.ret.signal_id ?? "—"}</span>
+              </p>
+              <p>
+                Timeframe:{" "}
+                <span className="font-mono text-white">{result.ret.timeframe ?? "—"}</span>
+              </p>
+              <p>
+                Deadline:{" "}
+                <span className="font-mono text-white">
+                  {formatDeadline(result.ret.deadline_ts)}
+                </span>
+              </p>
+              <p className="text-xs text-slate-400">
+                Come back after {result.ret.timeframe ?? "the timeframe"} to resolve it.
+              </p>
               {result.txHash && (
                 <p className="text-xs text-slate-500 break-all">Tx: {result.txHash}</p>
               )}
             </div>
           )}
-          {result.success && !result.judgment && (
-            <p className="mt-2 text-sm text-slate-300">Transaction finalized. Check the Signal Feed for results.</p>
+          {result.success && !result.ret && (
+            <p className="mt-2 text-sm text-slate-300">
+              Transaction finalized. Check the Signal Feed for details.
+            </p>
           )}
           {!result.success && (
             <p className="mt-2 text-sm text-red-300">{result.error}</p>

@@ -58,7 +58,7 @@ export default function App() {
 
       <main className="pb-12">
         {activeTab === "submit" && <SubmitSignal address={address} writeContract={writeContract} />}
-        {activeTab === "feed" && <SignalFeed readContract={readContract} />}
+        {activeTab === "feed" && <SignalFeed readContract={readContract} writeContract={writeContract} />}
         {activeTab === "leaderboard" && <Leaderboard readContract={readContract} />}
       </main>
     </div>

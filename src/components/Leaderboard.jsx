@@ -121,7 +121,10 @@ export default function Leaderboard({ readContract }) {
       </div>
 
       <div>
-        <h3 className="text-sm font-semibold text-white mb-3">Leaderboard</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-white">Leaderboard</h3>
+          <p className="text-xs text-slate-500">Only resolved signals count toward scores</p>
+        </div>
         {error && (
           <div className="rounded-lg bg-red-900/30 border border-red-700 px-4 py-3 text-red-300 text-sm mb-4">
             {error}
