@@ -1,6 +1,8 @@
 > **Contract source:** [signal_judge.py](https://github.com/genlayerlabs/genlayer-studio/pull/1626) — part of the genlayer-studio examples.
 # SignalJudge UI
 
+**Live demo:** https://predikt-fun.vercel.app/
+
 A React + Vite + Tailwind CSS frontend for the **SignalJudge** GenLayer smart contract. Traders submit price predictions, an LLM judges them on-chain, and a leaderboard tracks win rates.
 
 ## Stack
