@@ -1,10 +1,15 @@
 import { useEffect, useState, useCallback } from "react";
 import { createClient, createAccount, generatePrivateKey } from "genlayer-js";
-import { localnet } from "genlayer-js/chains";
+import { localnet, studionet } from "genlayer-js/chains";
 import { TransactionStatus } from "genlayer-js/types";
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS;
-const ENDPOINT = import.meta.env.VITE_GENLAYER_RPC_URL || "http://localhost:4000/api";
+// The live demo targets studionet (hosted testnet). Set VITE_GENLAYER_NET=localnet
+// for local development against a local node; each chain carries its own default RPC.
+const CHAIN = import.meta.env.VITE_GENLAYER_NET === "localnet" ? localnet : studionet;
+const DEFAULT_ENDPOINT =
+  CHAIN === localnet ? "http://localhost:4000/api" : "https://studio.genlayer.com/api";
+const ENDPOINT = import.meta.env.VITE_GENLAYER_RPC_URL || DEFAULT_ENDPOINT;
 
 function getStoredAccount() {
   const saved = localStorage.getItem("sg_private_key");
@@ -30,7 +35,7 @@ export function useGenLayer() {
     try {
       const acc = getStoredAccount();
       const c = createClient({
-        chain: localnet,
+        chain: CHAIN,
         endpoint: ENDPOINT,
         account: acc,
       });
@@ -86,6 +91,11 @@ export function useGenLayer() {
         status: TransactionStatus.FINALIZED,
         interval: 3000,
         retries: 120,
+        // Keep the full (un-simplified) receipt: simplifyTransactionReceipt strips
+        // the `raw` calldata bytes from leader_receipt[].result, which are what we
+        // need to decode the contract's structured return value. The full receipt
+        // still carries `hash`, so nothing else regresses.
+        fullTransaction: true,
       });
       return receipt;
     },

@@ -1,4 +1,42 @@
 import { useState } from "react";
+import { abi } from "genlayer-js";
+
+// The localnet receipt encodes a contract's return value as calldata, not JSON.
+// After simplifyTransactionReceipt the SDK hands it back as
+//   { raw, status: "return", payload: { raw: number[], readable } }
+// (and occasionally as a bare base64 string whose first byte is the status
+// code, 0 = return). Decode the calldata bytes into a plain JS object.
+function normalizeCalldata(value) {
+  if (typeof value === "bigint") return Number(value);
+  if (value instanceof Map) {
+    const obj = {};
+    for (const [k, v] of value) obj[k] = normalizeCalldata(v);
+    return obj;
+  }
+  if (Array.isArray(value)) return value.map(normalizeCalldata);
+  return value;
+}
+
+function decodeReturnValue(receipt) {
+  const result = receipt?.consensus_data?.leader_receipt?.[0]?.result;
+  if (!result) return null;
+  try {
+    let bytes;
+    if (typeof result === "string") {
+      const raw = Uint8Array.from(atob(result), (c) => c.charCodeAt(0));
+      if (raw[0] !== 0) return null; // not a successful return
+      bytes = raw.slice(1);
+    } else if (result.payload?.raw) {
+      bytes = Uint8Array.from(result.payload.raw);
+    } else {
+      return null;
+    }
+    // calldata.decode yields a Map with BigInt integers — normalize both.
+    return normalizeCalldata(abi.calldata.decode(bytes));
+  } catch {
+    return null;
+  }
+}
 
 const ASSETS = ["BTC", "ETH", "SOL", "BNB", "XRP", "DOGE", "ADA", "AVAX", "DOT", "MATIC"];
 const DIRECTIONS = ["ABOVE", "BELOW", "AT"];
@@ -13,7 +51,7 @@ const TIMEFRAMES = [
 
 export default function SubmitSignal({ address, writeContract }) {
   const [asset, setAsset] = useState("BTC");
-  const [direction, setDirection] = useState("ABOVE");
+  const [direction, setDirection] = useState("");
   const [targetPrice, setTargetPrice] = useState("");
   const [prediction, setPrediction] = useState("");
   const [reasoning, setReasoning] = useState("");
@@ -26,11 +64,13 @@ export default function SubmitSignal({ address, writeContract }) {
     if (!ASSETS.includes(asset)) {
       return "Asset must be selected from the dropdown.";
     }
-    if (!DIRECTIONS.includes(direction)) {
-      return "Direction must be ABOVE, BELOW, or AT.";
+    // Direction and target price are optional — leave them blank for a purely
+    // natural-language prediction that the LLM judges on its own terms.
+    if (direction && !DIRECTIONS.includes(direction)) {
+      return "Direction, if set, must be ABOVE, BELOW, or AT.";
     }
-    if (!targetPrice || !/^[0-9.]+$/.test(targetPrice)) {
-      return "Target Price must be a valid numeric string.";
+    if (targetPrice && !/^[0-9.]+$/.test(targetPrice)) {
+      return "Target Price, if set, must be a valid numeric string.";
     }
     if (!prediction.trim()) {
       return "Prediction is required.";
@@ -63,16 +103,8 @@ export default function SubmitSignal({ address, writeContract }) {
         direction,
         timeframe,
       ]);
-      // Extract return value from receipt
-      let ret = null;
-      const leaderReceipt = receipt?.consensus_data?.leader_receipt?.[0];
-      if (leaderReceipt?.result) {
-        try {
-          ret = JSON.parse(leaderReceipt.result);
-        } catch {
-          ret = { raw: leaderReceipt.result };
-        }
-      }
+      // Decode the calldata-encoded return value { signal_id, timeframe, deadline_ts }.
+      const ret = decodeReturnValue(receipt);
       setResult({
         success: true,
         ret,
@@ -130,12 +162,15 @@ export default function SubmitSignal({ address, writeContract }) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1">Direction</label>
+          <label className="block text-sm font-medium text-slate-300 mb-1">
+            Direction <span className="text-slate-500 font-normal">(optional)</span>
+          </label>
           <select
             value={direction}
             onChange={(e) => setDirection(e.target.value)}
             className="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
+            <option value="">None — natural-language prediction</option>
             {DIRECTIONS.map((d) => (
               <option key={d} value={d}>
                 {d}
@@ -145,12 +180,14 @@ export default function SubmitSignal({ address, writeContract }) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1">Target Price</label>
+          <label className="block text-sm font-medium text-slate-300 mb-1">
+            Target Price <span className="text-slate-500 font-normal">(optional)</span>
+          </label>
           <input
             type="text"
             value={targetPrice}
             onChange={(e) => setTargetPrice(e.target.value)}
-            placeholder="e.g. 100000"
+            placeholder="e.g. 100000 — leave blank for a natural-language call"
             className="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
         </div>
@@ -160,10 +197,13 @@ export default function SubmitSignal({ address, writeContract }) {
           <textarea
             value={prediction}
             onChange={(e) => setPrediction(e.target.value)}
-            placeholder="e.g. BTC will hold above 100k"
+            placeholder="e.g. BTC breaks its prior resistance and holds above it into the close"
             rows={3}
             className="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
+          <p className="mt-1 text-xs text-slate-500">
+            Write a plain-English call — the LLM judges the claim and your reasoning, not just price vs. target.
+          </p>
         </div>
 
         <div>

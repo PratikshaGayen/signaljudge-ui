@@ -71,10 +71,12 @@ function SignalCard({ signal, onResolve, resolvingId }) {
 
       <div className="grid grid-cols-2 gap-2 text-xs text-slate-400">
         <div>
-          Direction: <span className="text-slate-200 font-mono">{signal.direction}</span>
+          Direction:{" "}
+          <span className="text-slate-200 font-mono">{signal.direction || "—"}</span>
         </div>
         <div>
-          Target: <span className="text-slate-200 font-mono">{signal.target_price}</span>
+          Target:{" "}
+          <span className="text-slate-200 font-mono">{signal.target_price || "—"}</span>
         </div>
         {!isPending && (
           <>
@@ -88,6 +90,12 @@ function SignalCard({ signal, onResolve, resolvingId }) {
           </>
         )}
       </div>
+
+      {!isPending && signal.rationale && (
+        <p className="text-xs italic text-slate-400 border-l-2 border-slate-600 pl-2">
+          Judge: {signal.rationale}
+        </p>
+      )}
 
       <div className="text-xs text-slate-500">Submitter: {truncateAddr(signal.submitter)}</div>
 
