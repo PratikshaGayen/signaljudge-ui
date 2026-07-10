@@ -1,4 +1,6 @@
-> **Contract source:** [signal_judge.py](https://github.com/genlayerlabs/genlayer-studio/pull/1626) — part of the genlayer-studio examples.
+> **Contract source:** [`contract/signal_judge.py`](contract/signal_judge.py) — included in this repo. Also submitted upstream as [genlayer-studio PR #1626](https://github.com/genlayerlabs/genlayer-studio/pull/1626).
+>
+> **Deployed contract address:** `0x536E1afB326F44550D7A5Af5d420aE3dcBD7ce81` (GenLayer Studio testnet / studionet)
 # SignalJudge UI
 
 **Live demo:** https://predikt-fun.vercel.app/
@@ -56,17 +58,19 @@ The app will be available at `http://localhost:5173` (or another port if 5173 is
 ## Features
 
 ### Submit Signal
-- Form to submit a trading signal (Asset, Direction, Target Price, Prediction, Reasoning)
-- Validates that asset is alphanumeric and direction is exactly `ABOVE`, `BELOW`, or `AT`
+- Form to submit a trading signal (Asset, Timeframe, Direction, Target Price, Prediction, Reasoning)
+- Supports pure natural-language predictions: Direction and Target Price are **optional** — leave them blank and the LLM judges the plain-English claim on its own terms
+- Validates that asset is alphanumeric and, if a direction is set, that it is exactly `ABOVE`, `BELOW`, or `AT`
 - Shows the wallet address being used (auto-generated and persisted in `localStorage`)
 - Displays a prominent loading state while the transaction is finalized (30–90 seconds)
-- Shows the judgment result (correct/incorrect, current price, reasoning quality)
+- On submission, shows the assigned signal ID, timeframe, and resolution deadline
 
 ### Signal Feed
 - Lists all signals from `get_all_signals()`
-- Asset filter dropdown (All / BTC / ETH / SOL)
-- Each card shows asset, prediction, direction, target/current prices, correctness badge, reasoning quality, and truncated submitter address
-- Auto-refreshes every 30 seconds
+- Asset filter dropdown (All / BTC / ETH / SOL / BNB / XRP / DOGE / ADA / AVAX / DOT / MATIC)
+- Each card shows asset, timeframe, prediction, direction, target/current prices, correctness badge, reasoning quality, the judge's one-sentence rationale (on resolved cards), and truncated submitter address
+- Pending cards show a live countdown and a Resolve button once the deadline passes
+- Auto-refreshes every 15 seconds
 
 ### Leaderboard
 - Look up any wallet address with `get_score(address)`
@@ -78,7 +82,8 @@ The app will be available at `http://localhost:5173` (or another port if 5173 is
 The UI expects these methods on the deployed contract:
 
 **Write**
-- `submit_signal(asset, prediction, reasoning, target_price, direction)` → returns judgment JSON
+- `submit_signal(asset, prediction, reasoning, target_price, direction, timeframe)` → stores a PENDING signal. `target_price` and `direction` are **optional** — leave them blank for a purely natural-language prediction the LLM judges on its own terms.
+- `resolve_signal(signal_id)` → after the deadline, fetches recent OHLC candles over the timeframe, has validator LLMs judge the prediction against the real price action, and returns `{ correct, current_price, reasoning_quality, rationale }`.
 
 **Read**
 - `get_signal_count()` → number
