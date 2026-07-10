@@ -5,6 +5,7 @@
 //   fund <addr> <gen>          -> fund an address with N GEN (sim_fundAccount)
 //   fundpool <gen>             -> pre-seed the reward pool with N GEN (fund_pool)
 //   seed                       -> submit one near-certain-correct + one near-certain-wrong staked signal
+//   demoseed                   -> submit a curated varied set (numeric + natural-language) for the live feed
 //   status                     -> print signals, pool, and key balances
 //   resolve <ids...>           -> resolve signal ids, report payouts
 //
@@ -132,6 +133,41 @@ if (cmd === "fundpool") {
   console.log("  status:", r.status);
   const pool = await cTrader.readContract({ address: CONTRACT, functionName: "get_reward_pool", args: [] });
   console.log("reward_pool now:", fmtGen(pool), "GEN");
+  process.exit(0);
+}
+
+if (cmd === "demoseed") {
+  // A curated, varied set so the live feed reads like a real product rather than
+  // one row: a numeric ABOVE call (the path the reviewer praised) plus several
+  // natural-language predictions no price oracle could adjudicate — which is the
+  // whole point of needing an LLM. Mixes likely-correct and likely-wrong so the
+  // feed shows both verdicts. Numeric target is anchored just below live price so
+  // the ABOVE call is genuinely likely, not rigged to a round number.
+  async function livePrice(sym) {
+    const r = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}USDT`);
+    return Math.floor(parseFloat((await r.json()).price));
+  }
+  const btc = await livePrice("BTC");
+  const btcFloor = String(Math.floor(btc * 0.985)); // ~1.5% below spot
+  console.log(`live BTC ~${btc}, using ABOVE target ${btcFloor}`);
+  // args order: [asset, prediction, reasoning, target_price, direction, timeframe]
+  const submits = [
+    { tag: "numeric-ABOVE (likely-correct)", args: ["BTC", `BTC will still be trading above ${btcFloor} in five minutes`, "Price sits comfortably above this level; a >1.5% drop in 5 minutes needs a catalyst that isn't present.", btcFloor, "ABOVE", "5min"] },
+    { tag: "natural low-vol (likely-correct)", args: ["BTC", "BTC will stay within roughly 3% of its current price over the next 5 minutes, with no violent breakout either way", "Realized volatility over a 5-minute window is normally well under 3%.", "", "", "5min"] },
+    { tag: "natural absurd (likely-wrong)", args: ["ETH", "ETH will suddenly crash by more than 30% within the next 5 minutes", "Deliberately implausible: a flash crash this large in 5 minutes is extraordinarily rare.", "", "", "5min"] },
+    { tag: "natural absurd (likely-wrong)", args: ["ETH", "ETH will more than triple in price within the next 5 minutes", "An absurd instant moonshot with no basis.", "", "", "5min"] },
+  ];
+  await fund(trader.address, BigInt(submits.length) + 1n);
+  for (const s of submits) {
+    console.log(`\nsubmitting (${s.tag}) staking 1 GEN ...`);
+    const hash = await cTrader.writeContract({ address: CONTRACT, functionName: "submit_signal", args: s.args, value: GEN });
+    const r = await waitFinal(cTrader, hash);
+    console.log("  status:", r.status);
+  }
+  console.log("\ndemo-seeded. current feed:");
+  for (const s of await readAll(cTrader, CONTRACT)) {
+    console.log(`  #${s.id} ${s.asset} ${s.status} deadline=${new Date(s.deadline_ts*1000).toISOString()} "${s.prediction.slice(0,55)}"`);
+  }
   process.exit(0);
 }
 
