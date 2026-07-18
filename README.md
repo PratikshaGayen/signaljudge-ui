@@ -1,4 +1,6 @@
-> **Contract source:** [`contract/signal_judge.py`](contract/signal_judge.py) — included in this repo. Also submitted upstream as [genlayer-studio PR #1626](https://github.com/genlayerlabs/genlayer-studio/pull/1626).
+> **Contract source:** [`contract/signal_judge.py`](contract/signal_judge.py) — the exact Intelligent Contract used by this project, included in this repo. (Also mirrored upstream in [genlayer-studio PR #1626](https://github.com/genlayerlabs/genlayer-studio/pull/1626), but this repo is the source of truth.)
+>
+> **Contract tests:** [`test/`](test/) — 14 `gltest` cases covering stake enforcement, input validation, reward-pool accounting, resolve guards, and views. See [`test/README.md`](test/README.md) to run them.
 >
 > **Deployed contract address:** `0x536E1afB326F44550D7A5Af5d420aE3dcBD7ce81` (GenLayer Studio testnet / studionet)
 # SignalJudge UI
@@ -17,7 +19,7 @@ A React + Vite + Tailwind CSS frontend for the **SignalJudge** GenLayer smart co
 
 - Node.js 18+
 - A running GenLayer local node at `http://localhost:4000` (e.g. via [GenLayer Studio](https://github.com/yeagerai/genlayer-simulator))
-- The SignalJudge contract deployed and its address known — see [genlayer-studio PR #1626](https://github.com/genlayerlabs/genlayer-studio/pull/1626) for the contract source
+- The SignalJudge contract deployed and its address known — the contract source lives in this repo at [`contract/signal_judge.py`](contract/signal_judge.py)
 
 ## Setup
 
