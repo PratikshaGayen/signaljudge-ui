@@ -1,0 +1,10 @@
+# GenLayer test configuration (github.com/genlayerlabs/gltest).
+# The Intelligent Contract under test lives in ./contract, not the gltest
+# default ./contracts, so point the runner at it explicitly.
+# Tests run against a local GenLayer node by default (the preconfigured
+# `localnet`). Start one with `genlayer up` before running `gltest`. To
+# exercise the deployed contract on the hosted testnet instead, run:
+#   gltest --network studionet
+paths:
+  contracts: contract
+  artifacts: artifacts

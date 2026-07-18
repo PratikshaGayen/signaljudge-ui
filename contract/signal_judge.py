@@ -78,14 +78,14 @@ class SignalJudge(gl.Contract):
 
         Phase 2 (resolve_signal): anyone can call after the deadline. The
         contract fetches recent OHLC candles over the timeframe and asks
-        validator LLMs to *judge* the prediction against the real price action —
+        validator LLMs to *judge* the prediction against the real price action -
         not just check price-vs-target arithmetic, but assess whether the
         trader's actual claim (including natural-language ones that no price
         oracle could evaluate) held, and score the quality of their reasoning.
         This subjective judgment is why the contract needs GenLayer.
 
         Staking: submit_signal is payable and escrows a fixed STAKE_WEI. On
-        resolution the LLM's verdict releases that value — refund + reward for a
+        resolution the LLM's verdict releases that value - refund + reward for a
         correct call, forfeit-to-pool for a wrong one (see the constants block).
 
         TreeMap collections auto-initialize empty; the scalar reward_pool is set
@@ -106,7 +106,7 @@ class SignalJudge(gl.Contract):
 
         Ids are contiguous (0 .. len-1) because signals are only appended, so a
         plain index walk reconstructs the full feed. Only the view methods use
-        this — the write path reads/writes a single slot by id.
+        this - the write path reads/writes a single slot by id.
         """
         return [json.loads(self.signals[u256(i)]) for i in range(len(self.signals))]
 
@@ -115,14 +115,14 @@ class SignalJudge(gl.Contract):
         # not a consensus operation (one node serves it, the result is never
         # written to state), so a local clock is fine and avoids a slow web
         # round-trip. Every consensus-critical deadline decision uses
-        # _verified_now() instead — see submit_signal / resolve_signal.
+        # _verified_now() instead - see submit_signal / resolve_signal.
         return int(datetime.now(timezone.utc).timestamp())
 
     def _verified_now(self) -> int:
         # Verified external time for the write path.
         #
         # GenVM exposes no block timestamp, and a validator's local clock is
-        # non-deterministic — trusting datetime.now() here would let a single
+        # non-deterministic - trusting datetime.now() here would let a single
         # node fake "now" to resolve a signal before its real deadline. Instead
         # we read the open timestamp of Binance's current 1-minute candle.
         # Binance aligns candle open times to fixed minute boundaries, so every
@@ -130,7 +130,7 @@ class SignalJudge(gl.Contract):
         # integer and strict_eq reaches exact consensus without trusting any
         # node's wall clock. Because it is the candle's OPEN time it can only lag
         # real time (never lead it), so a deadline is never treated as reached
-        # early — the check stays conservative.
+        # early - the check stays conservative.
         def fetch_minute() -> str:
             raw = gl.nondet.web.render(TIME_SOURCE_URL, mode="text")
             candles = json.loads(raw)
@@ -158,23 +158,23 @@ class SignalJudge(gl.Contract):
         call. The stake is escrowed in the contract and released on resolution.
 
         Args:
-            asset:        Ticker — must be an alphanumeric string (e.g., BTC, ETH).
+            asset:        Ticker - must be an alphanumeric string (e.g., BTC, ETH).
             prediction:   Human-readable prediction text. May be a fully
                           natural-language claim (e.g., "BTC breaks resistance
                           and holds above it into the close").
             reasoning:    Trader's rationale.
             target_price: OPTIONAL price target in USD as a string. Leave empty
                           for a purely natural-language prediction.
-            direction:    OPTIONAL — ABOVE, BELOW, or AT relative to target_price.
+            direction:    OPTIONAL - ABOVE, BELOW, or AT relative to target_price.
                           Leave empty when there is no numeric target.
             timeframe:    Must be one of: 5min, 15min, 30min, 1h, 4h, 1d.
 
         The deadline is anchored to verified external time (not the node clock).
-        There is no LLM call — this stays cheap; the only network cost is the
+        There is no LLM call - this stays cheap; the only network cost is the
         strict_eq time fetch.
         """
         # Enforce the stake first so a mis-funded call fails cheaply, before the
-        # strict_eq time fetch. Exact amount only — refunding change would add a
+        # strict_eq time fetch. Exact amount only - refunding change would add a
         # payout path with nothing to gain for a fixed-stake game.
         if int(gl.message.value) != STAKE_WEI:
             raise gl.vm.UserError(
@@ -268,7 +268,7 @@ class SignalJudge(gl.Contract):
 
         Fetches recent OHLC candles over the timeframe, asks validator LLMs to
         judge the prediction against the real price action, updates leaderboard
-        counts, marks the signal RESOLVED. Anyone can call this — there's no
+        counts, marks the signal RESOLVED. Anyone can call this - there's no
         permission gate. The deadline is enforced against verified external time.
         """
         if signal_id < 0 or signal_id >= len(self.signals):
@@ -309,14 +309,14 @@ class SignalJudge(gl.Contract):
             )
         else:
             hint = (
-                "The trader gave no numeric target — judge the natural-language "
+                "The trader gave no numeric target - judge the natural-language "
                 "prediction entirely on its own terms."
             )
 
         def get_judgment() -> str:
             # Fetch real OHLC candles over the prediction's timeframe instead of a
-            # single spot price. Giving the LLM the actual price action — open,
-            # high, low, close per candle — lets it judge claims like "closed
+            # single spot price. Giving the LLM the actual price action - open,
+            # high, low, close per candle - lets it judge claims like "closed
             # green", "held above prior resistance", or "broke out and retested"
             # against what really happened, rather than confabulating a verdict
             # from one lone number.
@@ -330,7 +330,7 @@ class SignalJudge(gl.Contract):
             ]
 
             # The most recent candle approximates the prediction window; the
-            # earlier candles are prior context — their highs/lows stand in for
+            # earlier candles are prior context - their highs/lows stand in for
             # the "prior resistance / support" a trader would have referenced.
             recent = parsed[-1]
             prior = parsed[:-1] if len(parsed) > 1 else parsed
@@ -350,7 +350,7 @@ class SignalJudge(gl.Contract):
 
             task = f"""
 You are an expert crypto analyst acting as an impartial judge of a trader's
-prediction. Judge the prediction AS WRITTEN — not just whether a number was
+prediction. Judge the prediction AS WRITTEN - not just whether a number was
 crossed, but whether the trader's actual claim (including any stated magnitude,
 timing, direction, or market conditions) came true over the timeframe.
 
@@ -360,11 +360,11 @@ Trader's reasoning: "{_reasoning}"
 Timeframe: {_timeframe}
 {hint}
 
-Real market data from Binance — the last {len(parsed)} {interval} candles
+Real market data from Binance - the last {len(parsed)} {interval} candles
 (oldest first, prices in USD):
 {table}
 
-Derived facts (already computed for you — use them directly, don't recompute):
+Derived facts (already computed for you - use them directly, don't recompute):
 - Current price (close of the most recent candle): {current_price}
 - Most recent candle: open={recent['o']:.2f}, close={recent['c']:.2f} -> {recent_label}
 - Prior resistance proxy (highest high of the earlier candles): {prior_high:.2f}
@@ -375,7 +375,7 @@ the real candles above. For "closed green" use the most recent candle. For
 "held above resistance" compare the recent closes against the prior resistance
 proxy. Natural-language predictions require judgment, not arithmetic.
 
-Step 2: Rate the QUALITY of the trader's reasoning from 1-10 — was it sound,
+Step 2: Rate the QUALITY of the trader's reasoning from 1-10 - was it sound,
 specific, and did it actually hold up against what the market did? Give a
 one-sentence rationale grounded in the candle data above.
 
@@ -509,7 +509,7 @@ Output must be parseable JSON, nothing else.
     def get_resolvable_signals(self) -> str:
         """PENDING signals whose deadline has passed (ready to resolve).
 
-        Informational helper for the UI — uses the serving node's local clock
+        Informational helper for the UI - uses the serving node's local clock
         (see _local_now). The authoritative, consensus-enforced deadline check
         lives in resolve_signal via _verified_now().
         """
