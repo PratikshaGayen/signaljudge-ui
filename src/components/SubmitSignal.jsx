@@ -1,5 +1,15 @@
 import { useState } from "react";
 import { abi } from "genlayer-js";
+import { STAKE_WEI } from "../hooks/useGenLayer";
+
+// Format a wei amount (bigint) as a short GEN string for display.
+function fmtGen(wei) {
+  if (wei == null) return "—";
+  const GEN = 10n ** 18n;
+  const whole = wei / GEN;
+  const frac = (wei % GEN).toString().padStart(18, "0").slice(0, 4);
+  return `${whole}.${frac}`;
+}
 
 // The localnet receipt encodes a contract's return value as calldata, not JSON.
 // After simplifyTransactionReceipt the SDK hands it back as
@@ -49,7 +59,7 @@ const TIMEFRAMES = [
   { value: "1d", label: "1 Day" },
 ];
 
-export default function SubmitSignal({ address, writeContract }) {
+export default function SubmitSignal({ address, writeContract, balance, ensureFunded, refreshBalance }) {
   const [asset, setAsset] = useState("BTC");
   const [direction, setDirection] = useState("");
   const [targetPrice, setTargetPrice] = useState("");
@@ -59,6 +69,21 @@ export default function SubmitSignal({ address, writeContract }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [formError, setFormError] = useState("");
+  const [funding, setFunding] = useState(false);
+
+  const handleFund = async () => {
+    setFormError("");
+    setFunding(true);
+    try {
+      // Top the wallet up so it can cover the 1 GEN stake plus gas.
+      await ensureFunded(STAKE_WEI * 2n);
+      await refreshBalance();
+    } catch (err) {
+      setFormError(err.message || "Funding failed");
+    } finally {
+      setFunding(false);
+    }
+  };
 
   const validate = () => {
     if (!ASSETS.includes(asset)) {
@@ -95,14 +120,21 @@ export default function SubmitSignal({ address, writeContract }) {
     }
     setLoading(true);
     try {
-      const receipt = await writeContract("submit_signal", [
-        asset.toUpperCase(),
-        prediction.trim(),
-        reasoning.trim(),
-        targetPrice.trim(),
-        direction,
-        timeframe,
-      ]);
+      // submit_signal is payable and requires exactly STAKE_WEI (1 GEN). Forward
+      // the stake as the transaction value — writeContract funds the wallet first
+      // if it can't cover the stake plus gas.
+      const receipt = await writeContract(
+        "submit_signal",
+        [
+          asset.toUpperCase(),
+          prediction.trim(),
+          reasoning.trim(),
+          targetPrice.trim(),
+          direction,
+          timeframe,
+        ],
+        STAKE_WEI
+      );
       // Decode the calldata-encoded return value { signal_id, timeframe, deadline_ts }.
       const ret = decodeReturnValue(receipt);
       setResult({
@@ -126,8 +158,28 @@ export default function SubmitSignal({ address, writeContract }) {
   return (
     <div className="max-w-xl mx-auto px-4 py-8">
       <div className="mb-6 rounded-lg bg-slate-800 p-4">
-        <p className="text-sm text-slate-400">Connected Wallet</p>
-        <p className="font-mono text-sm text-emerald-400 break-all">{address || "Loading..."}</p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm text-slate-400">Connected Wallet</p>
+            <p className="font-mono text-sm text-emerald-400 break-all">{address || "Loading..."}</p>
+            <p className="mt-1 text-xs text-slate-400">
+              Balance:{" "}
+              <span className="font-mono text-slate-200">{fmtGen(balance)} GEN</span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleFund}
+            disabled={funding}
+            className="shrink-0 rounded-lg border border-slate-600 bg-slate-700 hover:bg-slate-600 disabled:opacity-60 disabled:cursor-not-allowed px-3 py-1.5 text-xs font-medium text-slate-100 transition-colors"
+          >
+            {funding ? "Funding..." : "Fund wallet"}
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-slate-500">
+          Each prediction escrows a <span className="text-slate-300">1 GEN</span> stake. New
+          wallets are auto-funded from the studionet faucet on your first submission.
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -228,7 +280,7 @@ export default function SubmitSignal({ address, writeContract }) {
           disabled={loading}
           className="w-full rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 disabled:cursor-not-allowed px-4 py-3 font-semibold text-white transition-colors"
         >
-          {loading ? "Submitting..." : "Submit Signal"}
+          {loading ? "Submitting..." : "Submit Signal (stake 1 GEN)"}
         </button>
       </form>
 

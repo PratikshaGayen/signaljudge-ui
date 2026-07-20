@@ -61,6 +61,8 @@ The app will be available at `http://localhost:5173` (or another port if 5173 is
 
 ### Submit Signal
 - Form to submit a trading signal (Asset, Timeframe, Direction, Target Price, Prediction, Reasoning)
+- **Stakes 1 GEN per prediction.** `submit_signal` is a payable method that requires exactly `10^18` wei (1 GEN); the UI forwards that stake as the transaction value (see `writeContract(..., STAKE_WEI)` in `src/components/SubmitSignal.jsx`).
+- **Funded account flow.** The auto-generated wallet starts empty on studionet, so before the first write the app tops it up from the studionet faucet RPC (`sim_fundAccount`) — the same call the ops scripts use. Funding is automatic on submit/resolve, and there is also a manual **Fund wallet** button. The connected-wallet panel shows the live GEN balance.
 - Supports pure natural-language predictions: Direction and Target Price are **optional** — leave them blank and the LLM judges the plain-English claim on its own terms
 - Validates that asset is alphanumeric and, if a direction is set, that it is exactly `ABOVE`, `BELOW`, or `AT`
 - Shows the wallet address being used (auto-generated and persisted in `localStorage`)
@@ -84,7 +86,7 @@ The app will be available at `http://localhost:5173` (or another port if 5173 is
 The UI expects these methods on the deployed contract:
 
 **Write**
-- `submit_signal(asset, prediction, reasoning, target_price, direction, timeframe)` → stores a PENDING signal. `target_price` and `direction` are **optional** — leave them blank for a purely natural-language prediction the LLM judges on its own terms.
+- `submit_signal(asset, prediction, reasoning, target_price, direction, timeframe)` → **payable, escrows exactly 1 GEN** — stores a PENDING signal. `target_price` and `direction` are **optional** — leave them blank for a purely natural-language prediction the LLM judges on its own terms.
 - `resolve_signal(signal_id)` → after the deadline, fetches recent OHLC candles over the timeframe, has validator LLMs judge the prediction against the real price action, and returns `{ correct, current_price, reasoning_quality, rationale }`.
 
 **Read**

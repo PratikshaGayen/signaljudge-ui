@@ -12,7 +12,8 @@ const TABS = [
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("submit");
-  const { address, readContract, writeContract, error } = useGenLayer();
+  const { address, balance, readContract, writeContract, ensureFunded, refreshBalance, error } =
+    useGenLayer();
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -57,7 +58,15 @@ export default function App() {
       )}
 
       <main className="pb-12">
-        {activeTab === "submit" && <SubmitSignal address={address} writeContract={writeContract} />}
+        {activeTab === "submit" && (
+          <SubmitSignal
+            address={address}
+            writeContract={writeContract}
+            balance={balance}
+            ensureFunded={ensureFunded}
+            refreshBalance={refreshBalance}
+          />
+        )}
         {activeTab === "feed" && <SignalFeed readContract={readContract} writeContract={writeContract} />}
         {activeTab === "leaderboard" && <Leaderboard readContract={readContract} />}
       </main>
